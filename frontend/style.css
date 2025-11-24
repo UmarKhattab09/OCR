@@ -1,0 +1,44 @@
+body{font-family:system-ui,Segoe UI,Roboto,Arial; background:#f7f8fa; color:#222; margin:0; padding:24px}
+.container{max-width:900px;margin:0 auto}
+.card{background:#fff;border-radius:8px;padding:16px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,0.06)}
+.row{display:flex;gap:8px;margin-top:8px}
+button{background:#2563eb;color:white;padding:8px 12px;border:none;border-radius:6px;cursor:pointer}
+button:disabled{opacity:.6;cursor:not-allowed}
+#preview img{max-width:100%;height:auto;margin-top:8px}
+textarea{width:100%;padding:8px;border-radius:6px;border:1px solid #ddd}
+#answer{white-space:pre-wrap;margin-top:8px;padding:8px;background:#f3f4f6;border-radius:6px}
+.notice{margin-top:8px;color:#444}
+
+/* Progress bar */
+.progress-container{width:100%;height:8px;background:#e6e7eb;border-radius:999px;overflow:hidden;margin:12px 0;display:none}
+.progress-bar{height:100%;width:0%;background:linear-gradient(90deg,#2563eb,#60a5fa);transition:width .2s ease}
+.progress-container[aria-hidden="false"]{display:block}
+
+/* Sidebar layout */
+.layout{display:flex;gap:16px;align-items:flex-start}
+#sidebar{width:260px;flex:0 0 260px}
+.container{flex:1}
+.sidebar-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.sessions-list{display:flex;flex-direction:column;gap:8px;max-height:70vh;overflow:auto}
+.session-item{display:flex;gap:8px;align-items:center;padding:8px;border-radius:6px;border:1px solid #eee;background:#fbfbfc}
+.session-item img{width:64px;height:48px;object-fit:cover;border-radius:4px}
+.session-meta{flex:1}
+.session-meta .title{font-weight:600;font-size:13px}
+.session-meta .sub{font-size:12px;color:#666}
+.session-actions{display:flex;flex-direction:column;gap:6px}
+.session-actions button{background:transparent;border:none;color:#e11d48;cursor:pointer;padding:4px}
+
+@media (max-width:900px){
+	.layout{flex-direction:column}
+	#sidebar{width:100%}
+}
+
+/* Chat history */
+.chat-history{max-height:280px;overflow:auto;padding:8px;border:1px solid #eee;border-radius:6px;background:#fafafa;margin-bottom:8px}
+.msg{padding:8px;border-radius:8px;margin-bottom:8px;max-width:86%}
+.msg.user{background:#2563eb;color:#fff;margin-left:auto;text-align:right}
+.msg.assistant{background:#f3f4f6;color:#111;margin-right:auto}
+.msg .meta{font-size:11px;color:rgba(0,0,0,0.45);margin-top:6px}
+.chat-input-row{display:flex;gap:8px}
+.chat-input-row input{flex:1;padding:8px;border-radius:6px;border:1px solid #ddd}
+.chat-input-row button{flex:0 0 auto}

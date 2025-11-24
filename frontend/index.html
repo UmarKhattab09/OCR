@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Handwritten OCR + RAG</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <div class="layout">
+    <aside id="sidebar">
+      <div class="sidebar-header">
+        <h2>Sessions</h2>
+        <button id="clear-sessions" title="Clear all sessions">Clear</button>
+      </div>
+      <div id="sessions-list" class="sessions-list"></div>
+    </aside>
+    <main class="container">
+      <h1>Handwritten Notes → OCR / RAG / PDF</h1>
+      <div id="progress-container" class="progress-container" aria-hidden="true">
+        <div id="progress-bar" class="progress-bar"></div>
+      </div>
+
+    <div class="card">
+      <label for="file">Upload image or PDF</label>
+      <input id="file" type="file" accept="image/*,.pdf" />
+      <div id="preview"></div>
+      <div class="row">
+        <button id="btn-ocr">Run OCR</button>
+        <button id="btn-pdf">Generate PDF</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Extracted Text</h3>
+      <textarea id="extracted" rows="12" readonly></textarea>
+      <div id="pages"></div>
+    </div>
+
+    <div class="card">
+      <h3>Ask about your notes (RAG)</h3>
+      <div id="chat-history" class="chat-history"></div>
+      <div class="chat-input-row">
+        <input id="question" placeholder="Type a question..." />
+        <button id="btn-ask">Ask</button>
+      </div>
+      <label><input id="use-full" type="checkbox"/> Use full notes as context</label>
+    </div>
+
+    <div class="notice" id="status"></div>
+  </div>
+  <script src="/static/app.js"></script>
+</body>
+</html>

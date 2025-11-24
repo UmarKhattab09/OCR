@@ -1,0 +1,19 @@
+transformers==4.46.3
+tokenizers==0.20.3
+pillow
+streamlit 
+pytesseract
+Pillow
+sentencepiece
+opencv-python
+reportlab
+ollama
+
+
+# FastAPI server dependencies
+fastapi
+uvicorn[standard]
+python-multipart
+pydantic
+
+pdf2image                       
