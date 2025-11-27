@@ -14,6 +14,9 @@
         <button id="clear-sessions" title="Clear all sessions">Clear</button>
       </div>
       <div id="sessions-list" class="sessions-list"></div>
+      <hr />
+      <div class="sidebar-header"><h3>Server Sessions</h3></div>
+      <div id="server-sessions-list" class="sessions-list"></div>
     </aside>
     <main class="container">
       <h1>Handwritten Notes → OCR / RAG / PDF</h1>
@@ -26,7 +29,8 @@
       <input id="file" type="file" accept="image/*,.pdf" />
       <div id="preview"></div>
       <div class="row">
-        <button id="btn-ocr">Run OCR</button>
+        <button id="btn-ocr">Run OCR (client)</button>
+        <button id="btn-process">Process (server)</button>
         <button id="btn-pdf">Generate PDF</button>
       </div>
     </div>
@@ -35,6 +39,18 @@
       <h3>Extracted Text</h3>
       <textarea id="extracted" rows="12" readonly></textarea>
       <div id="pages"></div>
+    </div>
+
+    <div class="card" id="structured-card" style="display:none">
+      <h3>Structured Fields (server)</h3>
+      <div id="structured-fields"></div>
+      <div class="row">
+        <button id="btn-export-csv">Export CSV</button>
+        <button id="btn-export-xlsx">Export XLSX</button>
+        <button id="btn-export-docx">Export DOCX</button>
+        <button id="btn-visualize">Visualize</button>
+      </div>
+      <canvas id="viz-canvas" style="max-width:100%;height:240px;margin-top:12px;display:none"></canvas>
     </div>
 
     <div class="card">
@@ -49,6 +65,7 @@
 
     <div class="notice" id="status"></div>
   </div>
-  <script src="/static/app.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="/static/app.js" defer></script>
 </body>
 </html>

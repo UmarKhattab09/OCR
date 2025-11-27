@@ -16,4 +16,13 @@ uvicorn[standard]
 python-multipart
 pydantic
 
+# OCR, embeddings, vector DB, exports
+pytesseract
+easyocr
+sentence-transformers
+faiss-cpu
+pandas
+openpyxl
+python-docx
+
 pdf2image                       

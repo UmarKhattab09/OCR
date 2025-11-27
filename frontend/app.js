@@ -10,6 +10,15 @@ const statusEl = document.getElementById('status');
 const useFullEl = document.getElementById('use-full');
 const progressContainer = document.getElementById('progress-container');
 const progressBar = document.getElementById('progress-bar');
+const btnProcess = document.getElementById('btn-process');
+const structuredCard = document.getElementById('structured-card');
+const structuredFields = document.getElementById('structured-fields');
+const btnExportCsv = document.getElementById('btn-export-csv');
+const btnExportXlsx = document.getElementById('btn-export-xlsx');
+const btnExportDocx = document.getElementById('btn-export-docx');
+const btnVisualize = document.getElementById('btn-visualize');
+const vizCanvas = document.getElementById('viz-canvas');
+console.log("btnProcess = ", document.getElementById("btn-process"));
 
 let progressInterval = null;
 
@@ -43,6 +52,7 @@ let lastPages = 0;
 let lastFile = null;
 const sessionsKey = 'ocr_sessions_v1';
 let currentSessionId = null;
+let currentServerSessionId = null;
 
 function loadSessions(){
   try{
@@ -77,16 +87,78 @@ function renderSidebar(){
   });
 }
 
+async function refreshServerSessions(){
+  const list = document.getElementById('server-sessions-list');
+  list.innerHTML = '';
+  try{
+    const res = await fetch('/sessions');
+    if (!res.ok) return;
+    const j = await res.json();
+    const sessions = j.sessions || [];
+    if (!sessions.length){ list.innerHTML = '<div style="color:#666;padding:8px">No server sessions</div>'; return }
+    sessions.slice().reverse().forEach(id=>{
+      const el = document.createElement('div'); el.className='session-item';
+      const metaDiv = document.createElement('div'); metaDiv.className='session-meta';
+      const title = document.createElement('div'); title.className='title'; title.textContent = id;
+      const loadBtn = document.createElement('button'); loadBtn.textContent='Open'; loadBtn.onclick = ()=> loadServerSession(id);
+      metaDiv.appendChild(title);
+      el.appendChild(metaDiv);
+      el.appendChild(loadBtn);
+      list.appendChild(el);
+    });
+  }catch(e){ console.warn('refreshServerSessions', e); }
+}
+
+async function loadServerSession(session_id){
+  try{
+    const res = await fetch(`/session/${session_id}`);
+    if (!res.ok){ status('Failed to load session'); return }
+    const j = await res.json();
+    const meta = j.meta || {};
+    // show structured fields
+    structuredCard.style.display = 'block';
+    structuredFields.innerHTML = '';
+    const s = meta.structured || {};
+    const fields = ['title','author','date','institution','keywords','full_text'];
+    fields.forEach(k=>{
+      const row = document.createElement('div'); row.className='field';
+      const lbl = document.createElement('div'); lbl.className='label'; lbl.textContent = k;
+      const val = document.createElement('div'); val.className='value'; val.textContent = Array.isArray(s[k]) ? s[k].join(', ') : (s[k] || '');
+      row.appendChild(lbl); row.appendChild(val); structuredFields.appendChild(row);
+    });
+    // also populate extracted text from full_text and set internal state
+    if (s.full_text) {
+      lastText = s.full_text;
+      extractedEl.value = s.full_text;
+      // prefer full-text retrieval for server sessions
+      useFullEl.checked = true;
+      useFullEl.disabled = true;
+    } else {
+      useFullEl.disabled = false;
+    }
+    // set as current server session
+    currentServerSessionId = session_id;
+    // also populate extracted text and pages count (fetch chunks count)
+    lastPages = j.chunks_count || 0;
+    pagesEl.textContent = `Pages (chunks): ${lastPages}`;
+    // fetch and render chat history if present in meta
+    if (meta.messages && meta.messages.length){
+      // replace local chat rendering
+      const chat = document.getElementById('chat-history'); chat.innerHTML = '';
+      meta.messages.forEach(m=>{
+        const el = document.createElement('div'); el.className = 'msg ' + (m.role==='user'?'user':'assistant');
+        el.innerHTML = `<div class="body">${escapeHtml(m.text)}</div><div class="meta">${new Date(m.ts*1000).toLocaleString()}</div>`;
+        chat.appendChild(el);
+      });
+    }
+    status('Loaded server session');
+  }catch(e){ console.error(e); status('Load server session failed') }
+}
+
 function addSession(session){
-  const sessions = loadSessions();
-  sessions.push(session);
-  // limit to 200 sessions
-  if (sessions.length > 200) sessions.splice(0, sessions.length-200);
-  saveSessions(sessions);
-  renderSidebar();
-  // set created session as current and render its chat history
-  currentSessionId = session.id;
-  renderChatHistoryForSession(session);
+  // local session storage has been removed; server sessions are authoritative
+  // keep no-op to avoid errors from older code paths
+  return;
 }
 
 function deleteSession(id){
@@ -113,9 +185,9 @@ function selectSession(id){
 }
 
 document.getElementById('clear-sessions').addEventListener('click', ()=>{
-  if (!confirm('Clear all saved sessions?')) return;
-  localStorage.removeItem(sessionsKey);
-  renderSidebar();
+  // local session clearing removed; refresh server sessions instead
+  if (!confirm('Refresh server sessions list?')) return;
+  refreshServerSessions();
 });
 
 // generate thumbnail for image files (returns dataURL) - null for non-image
@@ -141,7 +213,7 @@ function createThumbnail(file){
 }
 
 // initialize sidebar
-renderSidebar();
+refreshServerSessions();
 
 function getSessionById(id){
   const sessions = loadSessions();
@@ -204,21 +276,49 @@ async function uploadFile(){
   return j;
 }
 
+// Run OCR now creates a server session by invoking the same server process flow
 btnOCR.addEventListener('click', async ()=>{
+  if (!lastFile){ status('Select a file first'); return }
+  // trigger the server process flow which will create and load a session
+  btnProcess.click();
+});
+
+// Server-side full processing: /process endpoint
+btnProcess.addEventListener('click', async ()=>{
+  if (!lastFile){ status('Select a file first'); return }
+  const fd = new FormData(); fd.append('file', lastFile);
+  // immediate UI feedback: disable button, mark busy and show progress
+  const origText = btnProcess.innerText;
   try{
-    const j = await uploadFile();
-    lastText = j.text || '';
-    lastPages = j.pages || 0;
-    extractedEl.value = lastText;
-    pagesEl.textContent = `Pages: ${lastPages}`;
-    status('OCR complete');
-    // save session with thumbnail (if image)
-    const thumb = await createThumbnail(lastFile);
-    const sess = { id: Date.now().toString(), name: lastFile ? lastFile.name : 'upload', ts: Date.now(), text: lastText, pages: lastPages, preview: thumb, messages: [] };
-    addSession(sess);
-  }catch(e){
-    console.error(e);
-    status('OCR failed');
+    btnProcess.disabled = true;
+    btnProcess.setAttribute('aria-busy','true');
+    btnProcess.innerText = 'Processing...';
+  }catch(err){ console.warn('btnProcess update failed', err) }
+  // immediate status and console trace for debugging
+  status('Processing (starting upload)...');
+  console.log('Process button clicked, starting server process...');
+  // start visual progress immediately and force a repaint using two RAF ticks
+  startProgress();
+  await new Promise(r => requestAnimationFrame(()=>requestAnimationFrame(r)));
+  try{
+    const res = await fetch('/process', { method:'POST', body: fd });
+    if (!res.ok){ const t = await res.text(); stopProgress(); status('Server process failed: '+t); return }
+    const j = await res.json();
+    stopProgress();
+    status('Server processed — session created');
+    // show structured fields
+    await refreshServerSessions();
+    if (j.session_id) {
+      // automatically load the session so RAG is ready
+      await loadServerSession(j.session_id);
+      status('Session ready — use Ask button to query with RAG');
+    }
+  }catch(e){ console.error('Process error', e); stopProgress(); status('Server process error') }
+  finally{
+    // restore button state
+    btnProcess.disabled = false;
+    btnProcess.removeAttribute('aria-busy');
+    btnProcess.innerText = origText;
   }
 });
 
@@ -228,28 +328,39 @@ btnAsk.addEventListener('click', async ()=>{
   if (!lastText){ status('Run OCR first'); return }
   status('Querying model...');
   try{
-    // ensure we have a session to attach messages to
-    if (!currentSessionId){
-      const sess = { id: Date.now().toString(), name: lastFile ? lastFile.name : 'unsaved', ts: Date.now(), text: lastText, pages: lastPages, preview: null, messages: [] };
-      addSession(sess);
-    }
+    // append user message locally (do not persist to local sessions when using server sessions)
     const userMsg = { role: 'user', text: q, ts: Date.now() };
-    // append user message locally
     const chat = document.getElementById('chat-history');
     const uel = document.createElement('div'); uel.className = 'msg user'; uel.innerHTML = `<div class="body">${escapeHtml(q)}</div><div class="meta">${new Date(userMsg.ts).toLocaleString()}</div>`; chat.appendChild(uel); chat.scrollTop = chat.scrollHeight;
-    saveMessageToSession(currentSessionId, userMsg);
+    if (currentSessionId){
+      saveMessageToSession(currentSessionId, userMsg);
+    }
 
-    const payload = { text: lastText, question: q, use_full: useFullEl.checked };
-    startProgress();
-    const res = await fetch('/rag', { method:'POST', headers:{ 'Content-Type':'application/json'}, body: JSON.stringify(payload)});
-    if (!res.ok){ const t=await res.text(); status('Error: '+t); stopProgress(); return }
-    const j = await res.json();
-    const ans = j.answer || 'No answer';
-    const assistantMsg = { role: 'assistant', text: ans, ts: Date.now() };
-    const ael = document.createElement('div'); ael.className = 'msg assistant'; ael.innerHTML = `<div class="body">${escapeHtml(ans)}</div><div class="meta">${new Date(assistantMsg.ts).toLocaleString()}</div>`; chat.appendChild(ael); chat.scrollTop = chat.scrollHeight;
-    saveMessageToSession(currentSessionId, assistantMsg);
-    stopProgress();
-    status('Done');
+    // If a server session is active, use /query (retrieval+LLM); otherwise fallback to /rag
+    if (currentServerSessionId){
+      // for server sessions always prefer using the session full_text as context
+      const payload = { session_id: currentServerSessionId, question: q, top_k: 5, use_full: true };
+      startProgress();
+      const res = await fetch('/query', { method:'POST', headers:{ 'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+      if (!res.ok){ const t=await res.text(); status('Error: '+t); stopProgress(); return }
+      const j = await res.json();
+      const ans = j.answer || 'No answer';
+      const assistantMsg = { role: 'assistant', text: ans, ts: Date.now() };
+      const ael = document.createElement('div'); ael.className = 'msg assistant'; ael.innerHTML = `<div class="body">${escapeHtml(ans)}</div><div class="meta">${new Date(assistantMsg.ts).toLocaleString()}</div>`; chat.appendChild(ael); chat.scrollTop = chat.scrollHeight;
+      stopProgress();
+      status('Done');
+    }else{
+      const payload = { text: lastText, question: q, use_full: useFullEl.checked };
+      startProgress();
+      const res = await fetch('/rag', { method:'POST', headers:{ 'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+      if (!res.ok){ const t=await res.text(); status('Error: '+t); stopProgress(); return }
+      const j = await res.json();
+      const ans = j.answer || 'No answer';
+      const assistantMsg = { role: 'assistant', text: ans, ts: Date.now() };
+      const ael = document.createElement('div'); ael.className = 'msg assistant'; ael.innerHTML = `<div class="body">${escapeHtml(ans)}</div><div class="meta">${new Date(assistantMsg.ts).toLocaleString()}</div>`; chat.appendChild(ael); chat.scrollTop = chat.scrollHeight;
+      stopProgress();
+      status('Done');
+    }
     questionEl.value = '';
   }catch(e){ console.error(e); stopProgress(); status('RAG failed') }
 });
@@ -266,6 +377,41 @@ btnPDF.addEventListener('click', async ()=>{
     a.href = url; a.download = 'notes.pdf'; document.body.appendChild(a); a.click(); a.remove();
     status('PDF downloaded');
   }catch(e){ console.error(e); status('PDF generation failed') }
+});
+
+btnExportCsv.addEventListener('click', ()=> exportSession('csv'));
+btnExportXlsx.addEventListener('click', ()=> exportSession('xlsx'));
+btnExportDocx.addEventListener('click', ()=> exportSession('docx'));
+
+async function exportSession(fmt){
+  if (!currentServerSessionId){ status('Load a server session first'); return }
+  try{
+    const res = await fetch('/export', { method:'POST', headers:{ 'Content-Type':'application/json'}, body: JSON.stringify({ session_id: currentServerSessionId, format: fmt })});
+    if (!res.ok){ const t = await res.text(); status('Export failed: '+t); return }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `export.${fmt === 'xlsx' ? 'xlsx' : fmt}`; document.body.appendChild(a); a.click(); a.remove();
+    status('Export downloaded');
+  }catch(e){ console.error(e); status('Export error') }
+}
+
+btnVisualize.addEventListener('click', async ()=>{
+  if (!currentServerSessionId){ status('Load a server session first'); return }
+  try{
+    startProgress();
+    const res = await fetch(`/visualize/${currentServerSessionId}?top_k=12`);
+    if (!res.ok){ stopProgress(); status('Visualization failed'); return }
+    const j = await res.json();
+    const items = j.top_terms || [];
+    if (!items.length){ stopProgress(); status('No terms to visualize'); return }
+    vizCanvas.style.display = 'block';
+    const labels = items.map(x=>x[0]); const data = items.map(x=>x[1]);
+    // draw chart using Chart.js
+    if (window._chart) window._chart.destroy();
+    const ctx = vizCanvas.getContext('2d');
+    window._chart = new Chart(ctx, { type:'bar', data:{ labels, datasets:[{ label:'term frequency', data, backgroundColor:'#60a5fa' }] }, options:{ responsive:true, maintainAspectRatio:false } });
+    stopProgress();
+    status('Visualization ready');
+  }catch(e){ console.error(e); stopProgress(); status('Visualization error') }
 });
 
 function status(s){ statusEl.textContent = s }

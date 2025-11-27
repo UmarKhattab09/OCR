@@ -42,3 +42,12 @@ textarea{width:100%;padding:8px;border-radius:6px;border:1px solid #ddd}
 .chat-input-row{display:flex;gap:8px}
 .chat-input-row input{flex:1;padding:8px;border-radius:6px;border:1px solid #ddd}
 .chat-input-row button{flex:0 0 auto}
+
+/* structured fields */
+#structured-fields{display:flex;flex-direction:column;gap:6px}
+#structured-fields .field{display:flex;gap:8px}
+#structured-fields .label{width:120px;font-weight:600;color:#333}
+#structured-fields .value{flex:1;color:#111}
+
+.export-btns{display:flex;gap:8px;margin-top:8px}
+.export-btns button{background:#10b981}
