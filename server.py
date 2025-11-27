@@ -236,7 +236,7 @@ def ocr_image_bytes(img_bytes: bytes) -> str:
     response = ollama.chat(
         model="gemma3:12b",
         messages=[
-            {"role": "user", "content": "Extract ALL text from this handwriting. Return only text.", "images": [png_bytes]}
+            {"role": "user", "content": "Extract ALL text from this handwriting. Return text extracted from the iamges.", "images": [png_bytes]}
         ],
     )
     # Best-effort extraction of content
@@ -312,19 +312,19 @@ async def process_endpoint(file: UploadFile = File(...)):
             page_bytes = page_buf.getvalue()
             page_text = ''
             # try pytesseract then easyocr then ollama image extraction
-            if TESSERACT_AVAILABLE:
-                try:
-                    page_text = pytesseract.image_to_string(Image.open(BytesIO(page_bytes)))
-                except Exception:
-                    page_text = ''
-            if not page_text and EASYOCR_AVAILABLE:
-                try:
-                    reader = get_easy_reader()
-                    if reader:
-                        res = reader.readtext(page_bytes, detail=0)
-                        page_text = '\n'.join(res)
-                except Exception:
-                    page_text = ''
+            # if TESSERACT_AVAILABLE:
+            #     try:
+            #         page_text = pytesseract.image_to_string(Image.open(BytesIO(page_bytes)))
+            #     except Exception:
+            #         page_text = ''
+            # if not page_text and EASYOCR_AVAILABLE:
+            #     try:
+            #         reader = get_easy_reader()
+            #         if reader:
+            #             res = reader.readtext(page_bytes, detail=0)
+            #             page_text = '\n'.join(res)
+            #     except Exception:
+            #         page_text = ''
             if not page_text and OLLAMA_AVAILABLE:
                 try:
                     page_text = ocr_image_bytes(page_bytes)
@@ -339,10 +339,10 @@ async def process_endpoint(file: UploadFile = File(...)):
         if OLLAMA_AVAILABLE:
             try:
                 prompt = (
-                    "Extract structured metadata from the following handwritten document. "
-                    "Return ONLY a JSON object with keys: title, author, date, institution, keywords (array), full text. "
-                    "If a field is not present, return empty string or empty array.\n\nDocument text:\n" + full_text
-                )
+                    "Extract structured metadata from the following handwritten document. and also extract the full text from the image. "
+                    "Return ONLY a JSON object with keys: title, author, date, institution, keywords (array), and the full text from the image. "
+                    "If a field is not present, return empty string or empty array.\n\nDocument text:\n")
+                
                 resp = ollama.chat(model='gemma3:12b', messages=[{'role':'user','content':prompt}])
                 content = resp.get('message', {}).get('content', '')
                 # try to parse JSON from content

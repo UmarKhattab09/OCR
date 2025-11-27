@@ -1,0 +1,20 @@
+{
+  "filename": "WhatsApp Image 2025-11-15 at 5.11.58 PM.jpeg",
+  "pages": 1,
+  "structured": {
+    "full_text": "Okay, here's the transcribed text from the image, attempting to capture the handwriting as accurately as possible. Please be aware that some parts are speculative due to the difficulty of deciphering handwriting:\n\n**Page 1**\n\nLinear Regression\n\n[Diagram: x-axis labeled \"x\", y-axis labeled \"y\"]\n*  x points scattered.\n*  Line of best fit drawn, labeled \"y = b + ax\" (not perfectly clear)\n* b = intercept\n* a = slope\n\nCost Function:\n∑ᵢ=₁ⁿ (h(xᵢ) - yᵢ)²\n   \n  (h(xᵢ) - yᵢ)² → Should be minimal \n  [Predicted - Original]²\n\nJ(θ) = 1/m ∑ᵢ=₁ⁿ (h(xᵢ) - yᵢ)²\n\n* deriving with m gives average\n* 1/2 hpt derivative\n\nAlways try to reach global minima.\n* Smaller gradient descent\n\nConvergence Algorithm:\nθⱼ = θⱼ - α 2/m J(θ) ∂J(θ)/∂θⱼ\n\nα = Learning rate\n\n[Diagram: graph with a curve, showing a downward slope]\n\nθⱼ = θⱼ + (1/e) \n\nθⱼ = θⱼ - (1/e)\n\nR² = 1 - SSRes / SSTot\nSSRes = ∑ᵢ=₁ⁿ (yᵢ - ŷᵢ)²\nSSTot = ∑ᵢ=₁ⁿ (yᵢ - ȳ)²\n\nAdjusted R² = 1 - (N-1)/(N-P) (SSRes/SSTot)\n\nyᵢ = mean line\nŷᵢ = predicted\nN = datapoints\nP = predictors\n\n**Please note:** \n\n*   Some terms are best guesses due to writing clarity.\n*   The mathematical notation is transcribed as faithfully as possible, but formatting may not be perfect."
+  },
+  "created_at": 1764279094,
+  "messages": [
+    {
+      "role": "user",
+      "text": "what is the context",
+      "ts": 1764279119
+    },
+    {
+      "role": "assistant",
+      "text": "The context is Linear Regression.",
+      "ts": 1764279119
+    }
+  ]
+}

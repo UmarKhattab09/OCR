@@ -36,6 +36,56 @@
       "role": "assistant",
       "text": "I don't know. The provided text discusses blinking, eye health, and muscles.",
       "ts": 1764216264
+    },
+    {
+      "role": "user",
+      "text": "tell me about blinking",
+      "ts": 1764275768
+    },
+    {
+      "role": "assistant",
+      "text": "The average person blinks about 5-20 times per minute or about 20,000 times per day. Blinking helps to moisten and protect the eye.",
+      "ts": 1764275768
+    },
+    {
+      "role": "user",
+      "text": "tell me about blinking",
+      "ts": 1764276233
+    },
+    {
+      "role": "assistant",
+      "text": "The average person blinks about 5-20 times per minute or about 20,000 times per day. Blinking helps to moisten and protect the eye.",
+      "ts": 1764276233
+    },
+    {
+      "role": "user",
+      "text": "tell me about blinking",
+      "ts": 1764276382
+    },
+    {
+      "role": "assistant",
+      "text": "The average person blinks about 5-20 times per minute or about 20,000 times per day. Blinking helps moisten and protect the eye.",
+      "ts": 1764276382
+    },
+    {
+      "role": "user",
+      "text": "tell me about muscle",
+      "ts": 1764276644
+    },
+    {
+      "role": "assistant",
+      "text": "The human body has about 600 to 700 muscles. These muscles are responsible for posture and facial expressions.",
+      "ts": 1764276644
+    },
+    {
+      "role": "user",
+      "text": "tell me about muscles",
+      "ts": 1764276928
+    },
+    {
+      "role": "assistant",
+      "text": "The human body has about 600 to 700 muscles. The number can vary due to age, gender, and overall health. They are responsible for posture and facial expressions.",
+      "ts": 1764276928
     }
   ]
 }
