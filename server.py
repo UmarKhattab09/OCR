@@ -12,22 +12,9 @@ import os
 import json
 import uuid
 import numpy as np
-
-# Optional OCR backends
-try:
-    import pytesseract
-    TESSERACT_AVAILABLE = True
-except Exception:
-    pytesseract = None
-    TESSERACT_AVAILABLE = False
-
-try:
-    import easyocr
-    EASYOCR_AVAILABLE = True
-    _easy_reader = None
-except Exception:
-    easyocr = None
-    EASYOCR_AVAILABLE = False
+from dotenv import load_dotenv
+load_dotenv()  # Load environment variables from a .env file
+API_KEY = os.getenv("GEMINI_API_KEY")
 
 # Embeddings and vector store
 try:
@@ -70,14 +57,7 @@ async def root_index():
 SESSIONS_DIR = os.path.join(os.path.dirname(__file__), 'sessions')
 os.makedirs(SESSIONS_DIR, exist_ok=True)
 
-# load or init easyocr reader lazily
-def get_easy_reader():
-    global _easy_reader
-    if not EASYOCR_AVAILABLE:
-        return None
-    if _easy_reader is None:
-        _easy_reader = easyocr.Reader(['en'], gpu=False)
-    return _easy_reader
+
 
 def chunk_text(text: str, max_chars: int = 1000, overlap: int = 200):
     if not text:
@@ -145,6 +125,12 @@ try:
 except Exception:
     ollama = None
     OLLAMA_AVAILABLE = False
+try:
+    import google.genai as genai
+    GENAI_AVAILABLE = True
+except Exception:
+    genai = None
+    GENAI_AVAILABLE = False
 
 try:
     from reportlab.pdfgen import canvas
@@ -242,6 +228,18 @@ def ocr_image_bytes(img_bytes: bytes) -> str:
     # Best-effort extraction of content
     return response.get("message", {}).get("content")
 
+def gemini_image_ocr(img_bytes: bytes) -> str:
+    if not GENAI_AVAILABLE:
+        raise RuntimeError("google genai client not available. Install and configure google-genai or mock this in development.")
+    
+    client = genai.Client(api_key=API_KEY)
+    # Convert image bytes to base64 or suitable format if needed
+    response = client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents="Extract ALL text from this handwriting. Return only text.",
+        images=[img_bytes]
+    )
+    return response.text
 
 # Request/response models
 class RAGRequest(BaseModel):
@@ -252,7 +250,7 @@ class RAGRequest(BaseModel):
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "ollama": OLLAMA_AVAILABLE, "reportlab": REPORTLAB_AVAILABLE}
+    return {"status": "ok", "ollama": OLLAMA_AVAILABLE, "reportlab": REPORTLAB_AVAILABLE,"genai": GENAI_AVAILABLE}
 
 
 @app.post("/ocr")
@@ -277,7 +275,10 @@ async def ocr_endpoint(file: UploadFile = File(...)):
             img.save(buf, format="PNG")
             page_bytes = buf.getvalue()
             try:
-                page_text = ocr_image_bytes(page_bytes)
+                if GENAI_AVAILABLE:
+                    page_text = gemini_image_ocr(page_bytes)
+                elif OLLAMA_AVAILABLE:
+                    page_text = ocr_image_bytes(page_bytes)
             except Exception as e:
                 # include page-specific error but continue
                 page_text = f""  # leave blank on fail
@@ -311,20 +312,13 @@ async def process_endpoint(file: UploadFile = File(...)):
             img.save(page_buf, format='PNG')
             page_bytes = page_buf.getvalue()
             page_text = ''
-            # try pytesseract then easyocr then ollama image extraction
-            # if TESSERACT_AVAILABLE:
-            #     try:
-            #         page_text = pytesseract.image_to_string(Image.open(BytesIO(page_bytes)))
-            #     except Exception:
-            #         page_text = ''
-            # if not page_text and EASYOCR_AVAILABLE:
-            #     try:
-            #         reader = get_easy_reader()
-            #         if reader:
-            #             res = reader.readtext(page_bytes, detail=0)
-            #             page_text = '\n'.join(res)
-            #     except Exception:
-            #         page_text = ''
+
+            if not page_text and GENAI_AVAILABLE:
+                try:
+                    page_text = gemini_image_ocr(page_bytes)
+                except Exception:
+                    page_text = ''
+
             if not page_text and OLLAMA_AVAILABLE:
                 try:
                     page_text = ocr_image_bytes(page_bytes)
@@ -336,7 +330,35 @@ async def process_endpoint(file: UploadFile = File(...)):
 
         # Ask LLM to extract structured fields (JSON). Keep prompt strict to return JSON.
         structured = {}
-        if OLLAMA_AVAILABLE:
+        if GENAI_AVAILABLE:
+            try:
+                prompt = (
+                    "Extract structured metadata from the following handwritten document. and also extract the full text from the image. "
+                    "Return ONLY a JSON object with keys: title, author, date, institution, keywords (array), and the full text from the image. "
+                    "If a field is not present, return empty string or empty array.\n\nDocument text:\n")
+                
+                client = genai.Client(api_key=API_KEY)
+                response = client.models.generate_content(
+                    model="gemini-2.5-flash",
+                    contents=prompt + full_text
+                )
+                content = response.text
+                # try to parse JSON from content
+                try:
+                    # sometimes LLMs wrap JSON in backticks or text; extract first brace
+                    start = content.find('{')
+                    end = content.rfind('}')
+                    if start != -1 and end != -1:
+                        jtxt = content[start:end+1]
+                        structured = json.loads(jtxt)
+                except Exception:
+                    structured = { 'title':'', 'author':'', 'date':'', 'institution':'', 'keywords':[], 'full_text':'' }
+            except Exception:
+                structured = { 'title':'', 'author':'', 'date':'', 'institution':'', 'keywords':[], 'full_text':'' }
+
+
+
+        if OLLAMA_AVAILABLE and genai is None:
             try:
                 prompt = (
                     "Extract structured metadata from the following handwritten document. and also extract the full text from the image. "
@@ -386,6 +408,8 @@ async def process_endpoint(file: UploadFile = File(...)):
 
 @app.post("/rag")
 async def rag_endpoint(req: RAGRequest):
+    if not GENAI_AVAILABLE:
+        raise HTTPException(status_code=500, detail="google genai client not available on server")
     if not OLLAMA_AVAILABLE:
         raise HTTPException(status_code=500, detail="ollama client not available on server")
     if not req.text:
@@ -393,19 +417,28 @@ async def rag_endpoint(req: RAGRequest):
     ctx = req.text if req.use_full else truncate_for_context(req.text, max_chars=5000)
     system_msg = (
         "You are an assistant answering questions using the user's extracted handwritten notes as context. "
-        "Use only the provided notes to answer and cite nothing outside them. If the answer is not in the notes, say you don't know.\n\nNotes:\n"
+        "Use only the provided notes to answer and cite information if it's referenced to outside the notes.\n\nNotes:\n"
         + ctx
     )
     try:
-        response = ollama.chat(
+        if GENAI_AVAILABLE:
+            client = genai.Client(api_key=API_KEY)
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=system_msg + "\n\nQuestion:\n" + req.question
+            )
+            answer = response.text
+            return JSONResponse({"answer": answer})
+        elif OLLAMA_AVAILABLE: 
+            response = ollama.chat(
             model="gemma3:12b",
             messages=[
                 {"role": "system", "content": system_msg},
                 {"role": "user", "content": req.question},
             ],
         )
-        answer = response.get("message", {}).get("content")
-        return JSONResponse({"answer": answer})
+            answer = response.get("message", {}).get("content")
+            return JSONResponse({"answer": answer})
     except Exception as e:
         tb = traceback.format_exc()
         raise HTTPException(status_code=500, detail=str(e) + "\n" + tb)
@@ -464,12 +497,21 @@ async def query_endpoint(req: QueryRequest):
             + context
         )
         
+        #Query gemini
+        if GENAI_AVAILABLE:
+            client = genai.Client(api_key=API_KEY)
+            resp = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=system_msg + "\n\nQuestion:\n" + req.question
+            )
+            answer = resp.text
+        else:
         # Query Ollama
-        resp = ollama.chat(
-            model='gemma3:12b',
-            messages=[{'role':'system','content':system_msg}, {'role':'user','content':req.question}]
-        )
-        answer = resp.get('message', {}).get('content', '')
+            resp = ollama.chat(
+                model='gemma3:12b',
+                messages=[{'role':'system','content':system_msg}, {'role':'user','content':req.question}]
+            )
+            answer = resp.get('message', {}).get('content', '')
         
         # Save QA to session meta
         base = os.path.join(SESSIONS_DIR, req.session_id)

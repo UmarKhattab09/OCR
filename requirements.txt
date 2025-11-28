@@ -26,3 +26,5 @@ openpyxl
 python-docx
 
 pdf2image                       
+google-genai
+python-dotenv
