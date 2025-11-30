@@ -38,6 +38,36 @@
       "role": "assistant",
       "text": "I don't know what linear regression is based on the provided snippets.",
       "ts": 1764352137
+    },
+    {
+      "role": "user",
+      "text": "hi",
+      "ts": 1764478514
+    },
+    {
+      "role": "assistant",
+      "text": "Hi! How can I help you?",
+      "ts": 1764478514
+    },
+    {
+      "role": "user",
+      "text": "my name is omar",
+      "ts": 1764478535
+    },
+    {
+      "role": "assistant",
+      "text": "Hi Omar! It's nice to meet you. How can I help you today?",
+      "ts": 1764478535
+    },
+    {
+      "role": "user",
+      "text": "what is my name",
+      "ts": 1764478544
+    },
+    {
+      "role": "assistant",
+      "text": "Your name is Omar.",
+      "ts": 1764478544
     }
   ]
 }

@@ -497,24 +497,63 @@ async def query_endpoint(req: QueryRequest):
             + context
         )
         
-        #Query gemini
+        # Load previous messages for memory
+        base = os.path.join(SESSIONS_DIR, req.session_id)
+        previous_messages = []
+        if os.path.isdir(base):
+            meta_path = os.path.join(base, 'meta.json')
+            try:
+                with open(meta_path, 'r', encoding='utf8') as f:
+                    meta = json.load(f)
+                previous_messages = meta.get('messages', [])
+            except Exception:
+                previous_messages = []
+        
+        # Build conversation history (last 5 exchanges for context window efficiency)
+        conversation_history = []
+        for msg in previous_messages[-10:]:  # Keep last 10 messages (5 exchanges)
+            conversation_history.append({'role': msg.get('role', 'user'), 'content': msg.get('text', '')})
+        
+        # Query Gemini or Ollama with memory
+        answer = None
         if GENAI_AVAILABLE:
-            client = genai.Client(api_key=API_KEY)
-            resp = client.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=system_msg + "\n\nQuestion:\n" + req.question
-            )
-            answer = resp.text
-        else:
-        # Query Ollama
-            resp = ollama.chat(
-                model='gemma3:12b',
-                messages=[{'role':'system','content':system_msg}, {'role':'user','content':req.question}]
-            )
-            answer = resp.get('message', {}).get('content', '')
+            try:
+                client = genai.Client(api_key=API_KEY)
+                # Build full message content with history
+                full_content = system_msg + "\n\n"
+                if conversation_history:
+                    full_content += "Previous conversation:\n"
+                    for msg in conversation_history:
+                        role = "You" if msg['role'] == 'assistant' else "User"
+                        full_content += f"{role}: {msg['content']}\n"
+                    full_content += "\n"
+                full_content += f"User: {req.question}"
+                resp = client.models.generate_content(
+                    model="gemini-2.5-flash",
+                    contents=full_content
+                )
+                answer = resp.text
+            except Exception as e:
+                print(f"Gemini failed: {e}. Falling back to Ollama...")
+                answer = None
+        
+        # Fallback to Ollama if Gemini failed or unavailable
+        if answer is None:
+            if OLLAMA_AVAILABLE:
+                # Build messages list for Ollama with memory
+                messages = [{'role': 'system', 'content': system_msg}]
+                messages.extend(conversation_history)
+                messages.append({'role': 'user', 'content': req.question})
+                
+                resp = ollama.chat(
+                    model='gemma3:12b',
+                    messages=messages
+                )
+                answer = resp.get('message', {}).get('content', '')
+            else:
+                raise HTTPException(status_code=500, detail='No LLM available (Gemini and Ollama both failed)')
         
         # Save QA to session meta
-        base = os.path.join(SESSIONS_DIR, req.session_id)
         if os.path.isdir(base):
             meta_path = os.path.join(base, 'meta.json')
             with open(meta_path, 'r', encoding='utf8') as f:
@@ -526,7 +565,7 @@ async def query_endpoint(req: QueryRequest):
             with open(meta_path, 'w', encoding='utf8') as f:
                 json.dump(meta, f, ensure_ascii=False, indent=2)
         
-        return JSONResponse({'answer': answer, 'retrieved_count': len(retrieved)})
+        return JSONResponse({'answer': answer, 'retrieved_chunks': retrieved, 'context': context, 'retrieved_count': len(retrieved)})
     
     except HTTPException:
         raise

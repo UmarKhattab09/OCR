@@ -15,6 +15,16 @@
       "role": "assistant",
       "text": "The context is Linear Regression.",
       "ts": 1764279119
+    },
+    {
+      "role": "user",
+      "text": "hi",
+      "ts": 1764478279
+    },
+    {
+      "role": "assistant",
+      "text": "Hello!",
+      "ts": 1764478279
     }
   ]
 }
